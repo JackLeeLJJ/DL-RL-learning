@@ -1,0 +1,62 @@
+_wandb:
+    value:
+        cli_version: 0.18.7
+        m: []
+        python_version: 3.10.15
+        t:
+            "1":
+                - 12
+                - 45
+                - 55
+            "2":
+                - 12
+                - 45
+                - 55
+            "3":
+                - 16
+                - 23
+                - 55
+            "4": 3.10.15
+            "5": 0.18.7
+            "8":
+                - 3
+                - 5
+            "12": 0.18.7
+            "13": windows-amd64
+ACTIVATION:
+    value: tanh
+CONST_NORMALIZE_OBS:
+    value: false
+DEBUG:
+    value: false
+ENV_NAME:
+    value: hopper
+FOLDER:
+    value: ../results/
+GAMMA:
+    value: 0.99
+GREEDY_ACT:
+    value: false
+NORMALIZE_OBS:
+    value: true
+NORMALIZE_REWARD:
+    value: true
+NUM_ENVS:
+    value: 4
+NUM_STEPS:
+    value: 1024
+PROJECT:
+    value: ES-Baselines-ICLR
+SEED:
+    value: 1337
+WIDTH:
+    value: 512
+es_config:
+    value:
+        log_interval: 1
+        n_generations: 2000
+        popsize: 2048
+        rollouts_per_candidate: 1
+        save_interval: 10
+        sigma_decay: 1
+        sigma_init: 0.03
