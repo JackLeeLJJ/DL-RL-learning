@@ -83,6 +83,8 @@ def render_cartpole(state, env_params):
     return np.transpose(
         np.array(pygame.surfarray.pixels3d(screen)), axes=(1, 0, 2)
     )
+
+
 """这个函数 render_acrobot 用于在一个 500x500 的屏幕上可视化强化学习中的双摆（Acrobot）环境。
 它接收当前状态 state 和环境参数 env_params，并通过 Pygame 库绘制出一个包含两个连杆的双摆系统的二维图像。
 具体来说，函数首先根据给定的角度（通过状态 state 中的角度信息）计算出两个连杆的位置，

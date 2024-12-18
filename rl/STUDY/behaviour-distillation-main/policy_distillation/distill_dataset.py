@@ -24,7 +24,7 @@ import pickle as pkl
 import os
 
 # 0.1 Model Defitions
-class MLP(nn.Module):
+class MLP(nn.Module):#三层感知机
     """Network architecture. Matches MinAtar PPO agent from PureJaxRL"""
 
     action_dim: Sequence[int]
@@ -83,10 +83,11 @@ class CNN(nn.Module):
         )
         x = nn.Dense(features=self.action_dim)(x)
         pi = distrax.Categorical(logits=x)
-        return pi
+        return pi #动作空间的概率分布
 
 
 # 0.2 Data loading helper methods
+#用于处理批量数据。它的主要作用是将一个数据批次（batch）根据元素的类型，将其转换为 numpy 数组或堆叠的 numpy 数组。
 def numpy_collate(batch):
     if isinstance(batch[0], np.ndarray):
         return np.stack(batch)
@@ -119,10 +120,10 @@ class NumpyLoader(data.DataLoader):
 class FlattenAndCast(object):
     def __call__(self, pic):
         """Flatten and cast from Pic to Array for MLP use"""
-        return jnp.ravel(jnp.array(pic, dtype=jnp.float32))
+        return jnp.ravel(jnp.array(pic, dtype=jnp.float32))#jnp.ravel 将数组展平为一维数组
 
 
-class Cast(object):
+class Cast(object):#根据数据集的名称将输入的图像（pic）转换为适合卷积神经网络（CNN）处理的格式
         
     def __init__(self, dataset_name):
         self.dataset_name = dataset_name
@@ -137,7 +138,7 @@ class Cast(object):
             return jnp.array(pic, dtype=jnp.float32).reshape(1, 32, 32, 3)
 
 
-def get_data(config):
+def get_data(config):#用于加载和预处理不同的图像数据集（如 MNIST、FashionMNIST、CIFAR-10 等），并根据配置返回处理后的训练和测试数据。
     datasets_dict = {"MNIST" : (MNIST, len(MNIST.classes)), "FashionMNIST" : (FashionMNIST, len(MNIST.classes)), "CIFAR-10" : (CIFAR10, 10)} # Hardcoding for CIFAR since it doesn't have a `classes` attribute
     DATASET, n_targets = datasets_dict[config["DATASET"]]
     dataset_name = config["DATASET"].lower()
@@ -303,7 +304,7 @@ def make_train(config, train_images, train_labels, n_targets):
     return train
 
 
-def init_params(rng, train_images, train_targets, es_config, n_targets):
+def init_params(rng, train_images, train_targets, es_config, n_targets):#初始化一个 数据集，并根据配置（es_config）的不同初始化模式（如 zero、mean、sample）生成用于训练的图像和标签数据。这个数据集将作为一种 合成数据集（synthetic dataset）供进化策略（Evolutionary Strategy, ES）使用
     """Initialize dataset to be learned"""
 
     samples_per_class = es_config["dataset_size"] // n_targets
@@ -352,7 +353,7 @@ def init_params(rng, train_images, train_targets, es_config, n_targets):
 
 def init_es(rng_init, param_reshaper, params, es_config):
     """Initialize OpenES strategy"""
-    strategy = OpenES(
+    strategy = OpenES( #OpenES 是一个开源的进化策略库，用于实现基于黑盒优化的进化算法。
         popsize=es_config["popsize"],
         num_dims=param_reshaper.total_params,
         opt_name="adam",

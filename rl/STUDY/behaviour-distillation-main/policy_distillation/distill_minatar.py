@@ -49,16 +49,7 @@ def wrap_minatar_env(env, config, normalize_obs=False, normalize_reward=False, g
     return env
 
 """这段代码定义了一个名为 `BCAgent` 的神经网络类，继承自 `nn.Module`，用于构建强化学习中的策略网络（Policy Network）。它实现了一个包含多个全连接层的神经网络，其中每一层使用指定的激活函数（`relu` 或 `tanh`）进行非线性变换。该网络的输出是一个 `Categorical` 分布，代表离散动作空间中每个动作的概率分布。具体过程如下：
-
-1. **初始化参数**：`action_dim` 表示动作空间的维度，`activation` 指定激活函数，`width` 设定每一层的神经元数目。
-2. **前向传播**：
-   - 输入 `x` 经过第一个全连接层，权重初始化为正交矩阵（使用 `orthogonal(np.sqrt(2))`），偏置初始化为零。
-   - 然后根据指定的激活函数（`relu` 或 `tanh`）进行非线性变换。
-   - 接着经过两个相似的全连接层，每个层的输出都经过激活函数。
-   - 最终的输出是一个与 `action_dim` 大小相同的全连接层输出，表示每个动作的 logits。
-3. **输出分布**：使用 `distrax.Categorical` 来创建一个基于输出 logits 的类别分布 `pi`，这代表当前状态下选择各个动作的概率。
-
-该网络通常用于策略梯度类的强化学习算法，如 Proximal Policy Optimization (PPO)。"""
+"""
 class BCAgent(nn.Module):
     """Network architecture. Matches MinAtar PPO agent from PureJaxRL"""
 
@@ -136,7 +127,7 @@ class Transition(NamedTuple):
     info: jnp.ndarray
 
 
-def make_train(config):
+def make_train(config):#内层循环
     """Create training function based on config. The returned function will:
     - Train a policy through BC
     - Evaluate the policy in the environment
@@ -148,8 +139,8 @@ def make_train(config):
         env = FlattenObservationWrapper(env)
         env = LogWrapper(env)
         env = VecEnv(env)
-        if config["CONST_NORMALIZE_OBS"]:
-            func = lambda x: (x - config["OBS_MEAN"]) / jnp.sqrt(config["OBS_VAR"] + 1e-8)
+        if config["CONST_NORMALIZE_OBS"]:#对环境中的观测进行标准化处理
+            func = lambda x: (x - config["OBS_MEAN"]) / jnp.sqrt(config["OBS_VAR"] + 1e-8)#将 x 标准化为一个均值为 0，方差为 1 的数据
             env = TransformObservation(env, func)
     else:
         config["OBS_MEAN"] = config["OBS_MEAN"].reshape((10, 10, -1))
@@ -331,7 +322,7 @@ def init_env(config):
 def init_params(env, env_params, es_config):
     """Initialize dataset to be learned"""
 
-    if es_config["learn_labels"]:
+    if es_config["learn_labels"]:#如果为 True，意味着模型会学习标签（即学习目标动作），否则只会学习状态（环境的观测信息）。
         params = {
             "states": jnp.zeros((es_config["dataset_size"], *env.observation_space(env_params).shape)),
             "actions": jnp.zeros((es_config["dataset_size"], env.action_space(env_params).n))
@@ -342,11 +333,12 @@ def init_params(env, env_params, es_config):
             "states": jnp.zeros((es_config["dataset_size"], *env.observation_space(env_params).shape))
         }
         # Fix targets to one-hots since we're not learning them
+        #根据环境中的动作空间 (env.action_space(env_params).n) 初始化一个目标标签集合，并将标签转换为 one-hot 编码
         y_list = []
-        samples_per_action = es_config["dataset_size"] // env.action_space(env_params).n
-        for target in range(env.action_space(env_params).n):
-            y_list.extend([target] * samples_per_action)
-        fixed_targets = jax.nn.one_hot(jnp.array(y_list), env.action_space(env_params).n)
+        samples_per_action = es_config["dataset_size"] // env.action_space(env_params).n  #每个动作类别将有多少样本。
+        for target in range(env.action_space(env_params).n):#遍历所有可能的动作类别（即动作空间中的所有动作）
+            y_list.extend([target] * samples_per_action)#对于每一个动作类别（target），将 samples_per_action 个该动作标签添加到 y_list 中。
+        fixed_targets = jax.nn.one_hot(jnp.array(y_list), env.action_space(env_params).n)#将 y_list 中的标签转换为 one-hot 编码。y_list 是一个包含动作索引的列表，jax.nn.one_hot 会将每个标签转换为一个长度为 env.action_space(env_params).n 的向量
     param_reshaper = ParameterReshaper(params)
     return params, param_reshaper, fixed_targets
 
@@ -711,7 +703,7 @@ def main(config, es_config):
     lap_start = start
     fitness_over_gen = []
     max_fitness_over_gen = []
-    for gen in range(es_config["n_generations"]):
+    for gen in range(es_config["n_generations"]):#对应算法流程的T
         # Gen new dataset
         rng, rng_ask, rng_inner = jax.random.split(rng, 3)
         datasets, state = jax.jit(strategy.ask)(rng_ask, state, es_params)
@@ -729,7 +721,7 @@ def main(config, es_config):
 
             
             if es_config["learn_labels"]:
-                shaped_datasets["actions"] = jax.nn.softmax(shaped_datasets["actions"], axis=-1)
+                shaped_datasets["actions"] = jax.nn.softmax(shaped_datasets["actions"], axis=-1)#存储着当前环境中的状态（states）和行动（actions）数据
                 out = train_and_eval(batch_rng, shaped_datasets["states"], shaped_datasets["actions"])
             else:
                 out = train_and_eval(batch_rng, shaped_datasets["states"], fixed_targets)
@@ -738,21 +730,21 @@ def main(config, es_config):
             ep_lengths = out["metrics"]["returned_episode_lengths"]
             dones = out["metrics"]["returned_episode"]  # same dim, True for last steps, False otherwise
 
-            mean_ep_length = (ep_lengths * dones).sum(axis=(-1, -2, -3)) / dones.sum(
+            mean_ep_length = (ep_lengths * dones).sum(axis=(-1, -2, -3)) / dones.sum( #计算在多次回合（episode）中，每个回合的平均长度
                 axis=(-1, -2, -3))
             mean_ep_length = mean_ep_length.flatten()
 
-            fitness = out["metrics"]["returned_episode_returns"][:, :, -1, :].mean(axis=(-1, -2))
+            fitness = out["metrics"]["returned_episode_returns"][:, :, -1, :].mean(axis=(-1, -2))#计算出每个回合的 fitness，即衡量当前策略或模型性能的指标，并对结果进行适当的处理，以便后续使用
             fitness = fitness.flatten()  # Necessary if pmap-ing to 2+ devices
         #         fitness = jnp.minimum(fitness, fitness.mean()+40)
 
         # Update ES strategy with fitness info
-        state = jax.jit(strategy.tell)(datasets, fitness, state, es_params)
-        fitness_over_gen.append(fitness.mean())
+        state = jax.jit(strategy.tell)(datasets, fitness, state, es_params)# 调用 strategy.tell 方法来更新进化策略的状态，并对 datasets 和 fitness 进行处理，更新后的 state 将包含新的信息，供下一次使用。
+        fitness_over_gen.append(fitness.mean())#将这个回合的是fitness加进去
         max_fitness_over_gen.append(fitness.max())
 
         # Logging
-        if gen % es_config["log_interval"] == 0 or gen == 0:
+        if gen % es_config["log_interval"] == 0 or gen == 0:#在每一代（generation）训练过程中记录并输出一些关键的性能指标，如 bc_loss（行为克隆损失）和 bc_accuracy（行为克隆准确率）。它还会根据不同的设备配置来决定如何从模型输出中提取数据。
             lap_end = time.time()
             if len(jax.devices()) > 1:
                 bc_loss = out["metrics"]["bc_loss"][:, :, :, -1]
@@ -781,7 +773,7 @@ def main(config, es_config):
                 })
             lap_start = lap_end
 
-        if gen % es_config["save_interval"] == 0 or gen == 0:
+        if gen % es_config["save_interval"] == 0 or gen == 0:# 在每一代训练过程中保存模型的状态和相关的训练数据，以便后续分析、调试或恢复训练。它会在每个指定的代数间隔（save_interval）或者在第0代时进行保存。
             data = {
                 "state": state,
                 "fitness_over_gen": fitness_over_gen,

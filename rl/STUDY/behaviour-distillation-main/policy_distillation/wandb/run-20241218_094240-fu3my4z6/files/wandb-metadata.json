@@ -1,0 +1,31 @@
+{
+  "os": "Windows-11-10.0.22631-SP0",
+  "python": "CPython 3.12.8",
+  "startedAt": "2024-12-18T01:42:40.115942Z",
+  "program": "D:\\ALJJ\\DL-RL-learning\\rl\\STUDY\\behaviour-distillation-main\\policy_distillation\\distill_brax.py",
+  "codePath": "rl\\STUDY\\behaviour-distillation-main\\policy_distillation\\distill_brax.py",
+  "git": {
+    "remote": "https://github.com/JackLeeLJJ/DL-RL-learning.git",
+    "commit": "059ab7be713561494e142cc49d4c7979ac4cd695"
+  },
+  "email": "2826377160@qq.com",
+  "root": "D:\\ALJJ\\DL-RL-learning\\rl\\STUDY\\behaviour-distillation-main\\policy_distillation",
+  "host": "DESKTOP-LMCTEAS",
+  "executable": "C:\\Users\\cs207\\.conda\\envs\\rl3.12\\python.exe",
+  "codePathLocal": "distill_brax.py",
+  "cpu_count": 6,
+  "cpu_count_logical": 12,
+  "disk": {
+    "/": {
+      "total": "1000203087872",
+      "used": "276059017216"
+    }
+  },
+  "memory": {
+    "total": "34217807872"
+  },
+  "cpu": {
+    "count": 6,
+    "countLogical": 12
+  }
+}

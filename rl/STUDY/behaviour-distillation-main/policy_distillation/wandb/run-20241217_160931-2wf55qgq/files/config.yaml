@@ -1,0 +1,83 @@
+_wandb:
+    value:
+        cli_version: 0.19.1
+        m:
+            - "1": D
+              "6":
+                - 3
+              "7": []
+        python_version: 3.12.8
+        t:
+            "1":
+                - 1
+                - 12
+                - 41
+                - 45
+                - 55
+            "2":
+                - 1
+                - 12
+                - 41
+                - 45
+                - 55
+            "3":
+                - 7
+                - 16
+                - 23
+                - 55
+                - 62
+            "4": 3.12.8
+            "5": 0.19.1
+            "8":
+                - 3
+                - 5
+            "12": 0.19.1
+            "13": windows-amd64
+ACTIVATION:
+    value: relu
+ANNEAL_LR:
+    value: false
+DATA_NOISE:
+    value: 0
+DATASET:
+    value: MNIST
+DEBUG:
+    value: false
+FOLDER:
+    value: ../results/
+LR:
+    value: 0.1
+MOMENTUM:
+    value: 0
+NET:
+    value: CNN
+NORMALIZE:
+    value: false
+OVERFIT:
+    value: false
+OVERFIT_SEED:
+    value: 0
+PROJECT:
+    value: Dataset Distillation
+SEED:
+    value: 1337
+UPDATE_EPOCHS:
+    value: 1000
+WIDTH:
+    value: 128
+es_config:
+    value:
+        dataset_size: 10
+        init_mode: mean
+        learn_labels: false
+        log_dataset: false
+        log_interval: 1
+        lrate_decay: 0.999
+        lrate_init: 0.01
+        n_generations: 1000
+        popsize: 2048
+        rollouts_per_candidate: 2
+        save_interval: 10
+        sigma_decay: 0.999
+        sigma_init: 0.02
+        sigma_limit: 0.001

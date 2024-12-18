@@ -69,7 +69,7 @@ class BCAgentContinuous(nn.Module):
             self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0)
         )(actor_mean)
         actor_logtstd = self.param("log_std", nn.initializers.zeros, (self.action_dim,))
-        pi = distrax.MultivariateNormalDiag(actor_mean, jnp.exp(actor_logtstd))
+        pi = distrax.MultivariateNormalDiag(actor_mean, jnp.exp(actor_logtstd))#连续动作空间的概率分布（使用 Multivariate Normal 分布），这个分布由均值和标准差来参数化。
 
         return pi
 
@@ -95,7 +95,7 @@ def make_train(config):
     env = LogWrapper(env)
     env = ClipAction(env)
     if config["CONST_NORMALIZE_OBS"]:
-        func = lambda x: (x - config["OBS_MEAN"]) / jnp.sqrt(config["OBS_VAR"] + 1e-8)
+        func = lambda x: (x - config["OBS_MEAN"]) / jnp.sqrt(config["OBS_VAR"] + 1e-8)#将 x 标准化为一个均值为 0，方差为 1 的数据
         env = TransformObservation(env, func)
     env = VecEnv(env)
     if config["NORMALIZE_OBS"] and not config["CONST_NORMALIZE_OBS"]:
@@ -104,11 +104,11 @@ def make_train(config):
         env = NormalizeVecReward(env, config["GAMMA"])
 
     # Do I need a schedule on the LR for BC?
-    def linear_schedule(count):
+    def linear_schedule(count):#权重衰减
         frac = 1.0 - (count // config["NUM_UPDATES"])
         return config["LR"] * frac
 
-    def train(synth_data, action_labels, rng):
+    def train(synth_data, action_labels, rng):#synth_data是专家在执行任务时在环境中的观测
         """Train using BC on synthetic data with fixed action labels and evaluate on RL environment"""
 
         action_shape = env.action_space(env_params).shape[0]
@@ -116,10 +116,10 @@ def make_train(config):
             action_shape, activation=config["ACTIVATION"], width=config["WIDTH"]
         )
 
-        if not config["OVERFIT"]:
+        if not config["OVERFIT"]:#不进行过拟合
             rng, _rng = jax.random.split(rng)
             init_x = jnp.zeros(env.observation_space(env_params).shape)
-            network_params = network.init(_rng, init_x)
+            network_params = network.init(_rng, init_x)#使用零向量初始化网络的权重。
         else:
             print(f"OVERFIT SEED {config['OVERFIT_SEED']}")
             _rng = jax.random.PRNGKey(config["OVERFIT_SEED"])
@@ -131,9 +131,9 @@ def make_train(config):
         ), f"Data of shape {synth_data[0].shape} does not match env observations of shape {env.observation_space(env_params).shape}"
 
         # Setup optimizer
-        if config["ANNEAL_LR"]:
+        if config["ANNEAL_LR"]:#使用权重衰减
             tx = optax.chain(
-                optax.clip_by_global_norm(config["MAX_GRAD_NORM"]),
+                optax.clip_by_global_norm(config["MAX_GRAD_NORM"]),#梯度裁剪
                 optax.adam(learning_rate=linear_schedule, eps=1e-5),
             )
         else:
@@ -144,9 +144,9 @@ def make_train(config):
 
         # Train state carries everything needed for NN training
         train_state = TrainState.create(
-            apply_fn=network.apply,
+            apply_fn=network.apply,#网络的前向传播函数，通常用于将输入数据传递到网络中并进行计算，得到输出
             params=network_params,
-            tx=tx,
+            tx=tx,#优化器
         )
 
         # 2. BC TRAIN LOOP
@@ -156,33 +156,33 @@ def make_train(config):
 
                 def _loss_and_acc(params, apply_fn, step_data, y_true, num_classes, grad_rng):
                     """Compute cross-entropy loss and accuracy.
-                    y_true are prescribed actions, NOT action probabilities. Hence we take pi.log_prob(y_true)
+                    y_true are prescribed actions, NOT action probabilities. Hence we take pi.log_prob(y_true) y_true是由专家策略生成的
                     """
                     pi = apply_fn(params, step_data)
                     y_pred = pi.sample(seed=grad_rng)
 
                     acc = jnp.mean(jnp.abs(y_pred - y_true))
-                    log_prob = -pi.log_prob(y_true)
+                    log_prob = -pi.log_prob(y_true)# 负对数似然损失
                     loss = jnp.sum(log_prob)
-                    #                     loss = jnp.sum(jnp.abs(y_pred - y_true))
+                    # loss = jnp.sum(jnp.abs(y_pred - y_true))
                     loss /= y_true.shape[0]
 
                     return loss, acc
 
-                grad_fn = jax.value_and_grad(_loss_and_acc, has_aux=True)
+                grad_fn = jax.value_and_grad(_loss_and_acc, has_aux=True)#value_and_grad 同时计算某个函数的输出值（函数值）和该函数关于输入的梯度（导数）
 
                 # Not needed if using entire dataset
                 rng, perm_rng = jax.random.split(rng)
-                perm = jax.random.permutation(perm_rng, len(action_labels))
+                perm = jax.random.permutation(perm_rng, len(action_labels))#生成一个随机排列的索引
 
-                step_data = synth_data[perm]
-                y_true = action_labels[perm]
+                step_data = synth_data[perm]#是一个包含了环境状态（或观测）的数据集，它包含了环境中的状态（即 step_data）。这些数据通常是通过专家策略生成的，也就是说，它们是专家在执行任务时在环境中的观测。
+                y_true = action_labels[perm]# 目标是专家策略的动作标签
 
                 rng, state_noise_rng, act_noise_rng = jax.random.split(rng, 3)
                 state_noise = jax.random.normal(state_noise_rng, step_data.shape)
                 act_noise = jax.random.normal(act_noise_rng, y_true.shape)
 
-                step_data = step_data + config["DATA_NOISE"] * state_noise
+                step_data = step_data + config["DATA_NOISE"] * state_noise #增强模型的鲁棒性，并模拟真实世界中的不确定性和干扰
                 y_true = y_true + config["DATA_NOISE"] * act_noise
 
                 rng, grad_rng = jax.random.split(rng)
@@ -195,12 +195,12 @@ def make_train(config):
                     action_shape,
                     grad_rng
                 )
-                train_state = train_state.apply_gradients(grads=grads)
+                train_state = train_state.apply_gradients(grads=grads) #梯度下降更新参数
                 bc_state = (train_state, rng)
                 return bc_state, loss_and_acc
 
             bc_state = (train_state, rng)
-            bc_state, loss_and_acc = jax.lax.scan(
+            bc_state, loss_and_acc = jax.lax.scan(#循环执行UPDATE_EPOCHS次
                 _bc_update_step, bc_state, None, config["UPDATE_EPOCHS"]
             )
             loss, acc = loss_and_acc
@@ -217,18 +217,18 @@ def make_train(config):
         obsv, env_state = env.reset(reset_rng, env_params)
 
         # 3. POLICY EVAL LOOP
-        def _eval_ep(runner_state):
+        def _eval_ep(runner_state):#执行一个 回合（episode） 的评估步骤
             # Environment stepper
             def _env_step(runner_state, unused):
                 train_state, env_state, last_obs, rng = runner_state
 
                 # Select Action
                 rng, _rng = jax.random.split(rng)
-                pi = train_state.apply_fn(train_state.params, last_obs)
+                pi = train_state.apply_fn(train_state.params, last_obs) #last_obs：表示当前步骤的观测，即在当前时刻代理所看到的环境状态。
                 if config["GREEDY_ACT"]:
                     action = pi.probs.argmax(
                         axis=-1
-                    )  # if 2+ actions are equiprobable, returns first
+                    )  # if 2+ actions are equiprobable, returns first返回概率最大的动作
                 else:
                     action = pi.sample(seed=_rng)
 
@@ -239,14 +239,14 @@ def make_train(config):
                 #                 obsv, env_state, reward, done, info = jax.vmap(
                 #                     env.step, in_axes=(0, 0, 0, None)
                 #                 )(rng_step, env_state, action, env_params)
-                obsv, env_state, reward, done, info = env.step(rng_step, env_state, action, env_params)
+                obsv, env_state, reward, done, info = env.step(rng_step, env_state, action, env_params)#采取一步动作
                 transition = Transition(
                     done, action, -1, reward, pi.log_prob(action), last_obs, info
                 )
                 runner_state = (train_state, env_state, obsv, rng)
                 return runner_state, transition
 
-            runner_state, traj_batch = jax.lax.scan(
+            runner_state, traj_batch = jax.lax.scan(#traj_batch：记录环境在每个时间步的变化（轨迹批次），通常用于分析或计算策略的表现。
                 _env_step, runner_state, None, config["NUM_STEPS"]
             )
             metric = traj_batch.info
@@ -278,7 +278,7 @@ def init_env(config):
 def init_params(env, env_params, es_config):
     """Initialize dataset to be learned"""
     params = {
-        "states": jnp.zeros((es_config["dataset_size"], *env.observation_space(env_params).shape)),
+        "states": jnp.zeros((es_config["dataset_size"], *env.observation_space(env_params).shape)),#数据集大小*观察空间形状
         "actions": jnp.zeros((es_config["dataset_size"], *env.action_space(env_params).shape))
     }
     param_reshaper = ParameterReshaper(params)
@@ -298,7 +298,7 @@ def init_es(rng_init, param_reshaper, es_config):
     # state = state.replace(mean = sampled_data)
 
     es_params = strategy.params_strategy
-    es_params = es_params.replace(sigma_init=es_config["sigma_init"], sigma_decay=es_config["sigma_decay"])
+    es_params = es_params.replace(sigma_init=es_config["sigma_init"], sigma_decay=es_config["sigma_decay"])#sigma_decay 代表了每经过一定的训练步骤后，标准差的衰减比例。sigma是噪声方差
     state = strategy.initialize(rng_init, es_params)
 
     return strategy, es_params, state
@@ -323,13 +323,13 @@ def parse_arguments(argstring=None):
         default=64,
     )
     parser.add_argument(
-        "--popsize",
+        "--popsize",#P
         type=int,
         help="Number of state-action pairs",
         default=2048
     )
     parser.add_argument(
-        "--generations",
+        "--generations",#T
         type=int,
         help="Number of ES generations",
         default=2000
@@ -337,7 +337,7 @@ def parse_arguments(argstring=None):
     parser.add_argument(
         "--rollouts",
         type=int,
-        help="Number of BC policies trained per candidate",
+        help="Number of BC policies trained per candidate",#在评估一个候选策略时，我们会执行多少个回合，以了解该策略的表现。每个回合都会产生一条完整的轨迹。
         default=2
     )
     parser.add_argument(
@@ -556,7 +556,7 @@ def main(config, es_config):
 
     # TODO: Refactor to allow for different RNGs for each dataset
     if len(jax.devices()) > 1:
-        # If available, distribute over multiple GPUs
+        # If available, distribute over multiple GPUs #在多个GPU上运行
         train_and_eval = jax.pmap(train_and_eval, in_axes=(None, 0, 0))
 
     start = time.time()
@@ -586,23 +586,23 @@ def main(config, es_config):
             dones = out["metrics"]["returned_episode"]  # same dim, True for last steps, False otherwise
 
             mean_ep_length = (ep_lengths * dones).sum(axis=(-1, -2, -3)) / dones.sum(
-                axis=(-1, -2, -3))
+                axis=(-1, -2, -3))#计算在多次回合（episode）中，每个回合的平均长度
             mean_ep_length = mean_ep_length.flatten()
 
             # Division by zero, watch out
             fitness = (returns * dones).sum(axis=(-1, -2, -3)) / dones.sum(
-                axis=(-1, -2, -3))  # fitness, dim = (popsize)
+                axis=(-1, -2, -3))  # fitness, dim = (popsize)#计算出每个回合的 fitness，即衡量当前策略或模型性能的指标，并对结果进行适当的处理，以便后续使用
             # fitness = out["metrics"]["returned_episode_returns"][:, :, -1, :].mean(axis=(-1, -2))
             fitness = fitness.flatten()  # Necessary if pmap-ing to 2+ devices
         #         fitness = jnp.minimum(fitness, fitness.mean()+40)
 
         # Update ES strategy with fitness info
-        state = jax.jit(strategy.tell)(datasets, fitness, state, es_params)
+        state = jax.jit(strategy.tell)(datasets, fitness, state, es_params)# 调用 strategy.tell 方法来更新进化策略的状态，并对 datasets 和 fitness 进行处理，更新后的 state 将包含新的信息，供下一次使用。
         fitness_over_gen.append(fitness.mean())
         max_fitness_over_gen.append(fitness.max())
 
         # Logging
-        if gen % es_config["log_interval"] == 0 or gen == 0:
+        if gen % es_config["log_interval"] == 0 or gen == 0:#在每一代（generation）训练过程中记录并输出一些关键的性能指标，如 bc_loss（行为克隆损失）和 bc_accuracy（行为克隆准确率）。它还会根据不同的设备配置来决定如何从模型输出中提取数据。
             lap_end = time.time()
             if len(jax.devices()) > 1:
                 bc_loss = out["metrics"]["bc_loss"][:, :, :, -1]
