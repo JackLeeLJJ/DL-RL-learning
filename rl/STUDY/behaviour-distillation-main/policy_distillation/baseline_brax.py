@@ -313,6 +313,7 @@ def parse_arguments(argstring=None):
         action="store_true",
         default=False
     )
+
     if argstring is not None:
         args = parser.parse_args(argstring.split())
     else:
